@@ -1,0 +1,92 @@
+#include <SPI.h>
+#include <MFRC522.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+#define SS_PIN 5
+#define RST_PIN 4
+#define BUZZER_PIN 25
+
+MFRC522 rfid(SS_PIN, RST_PIN);
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Valid Cards
+String card1 = "23C8FB33";
+String card2 = "6DD4C801";
+
+void setup() {
+  Serial.begin(115200);
+  SPI.begin(18, 19, 23, 5);
+  rfid.PCD_Init();
+
+  Wire.begin(21, 22);
+  lcd.init();
+  lcd.backlight();
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  lcd.setCursor(0, 0);
+  lcd.print("Library System");
+  lcd.setCursor(0, 1);
+  lcd.print("Scan Your Card");
+  Serial.println("System Ready...");
+}
+
+void loop() {
+  if (!rfid.PICC_IsNewCardPresent()) return;
+  if (!rfid.PICC_ReadCardSerial()) return;
+
+  String uid = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    if (rfid.uid.uidByte[i] < 0x10) uid += "0";
+    uid += String(rfid.uid.uidByte[i], HEX);
+  }
+  uid.toUpperCase();
+  Serial.println("Card UID: " + uid);
+
+  lcd.clear();
+
+  if (uid == card1 || uid == card2) {
+    // VALID ACCESS - SINGLE BEEP
+    lcd.setCursor(0, 0);
+    lcd.print("Valid Access");
+    lcd.setCursor(0, 1);
+    lcd.print("Welcome Student");
+
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(300);
+    digitalWrite(BUZZER_PIN, LOW);
+
+    delay(1500);
+
+  } else {
+    // INVALID ACCESS - DOUBLE BEEP
+    lcd.setCursor(0, 0);
+    lcd.print("Invalid Access");
+    lcd.setCursor(0, 1);
+    lcd.print("Unknown Card");
+
+    // Beep 1
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(200);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(150);
+    // Beep 2
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(200);
+    digitalWrite(BUZZER_PIN, LOW);
+
+    delay(1000);
+  }
+
+  delay(500);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Library System");
+  lcd.setCursor(0, 1);
+  lcd.print("Scan Your Card");
+
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+}
